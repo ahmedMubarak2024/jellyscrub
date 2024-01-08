@@ -1,10 +1,10 @@
 [
     {
-        "guid": "a84a949d-4b73-4099-aacb-8341b4da17ba",
-        "name": "Jellyscrub",
+        "guid": "a84a949d-4b73-4099-aacb-8341b4da17aba",
+        "name": "JellyscrubTest",
         "overview": "Create BIF files for media to be used for trickplay scrubbing previews.",
         "description": "Smooth mouse-over video scrubbing previews.",
-        "owner": "Nick",
+        "owner": "Ahmed",
         "category": "General",
         "imageUrl": "https://raw.githubusercontent.com/nicknsy/jellyscrub/main/logo/logo.png",
         "versions": [
@@ -14,7 +14,7 @@
                 "targetAbi": "10.8.0.0",
                 "sourceUrl": "https://github.com/ahmedMubarak2024/jellyscrub/releases/download/Testing/Jellyscrub-v1.1.1.1.zip",
                 "checksum": "614925d3858f474af632afad85101bf6",
-                "timestamp": "2023-03-30T05:02:00Z"
+                "timestamp": "2024-01-01T05:02:00Z"
             },
             {
                 "version": "1.1.1.0",
