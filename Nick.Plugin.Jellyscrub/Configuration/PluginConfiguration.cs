@@ -72,6 +72,8 @@ public class PluginConfiguration : BasePluginConfiguration
     /// </summary>
     public int Interval { get; set; } = 10000;
 
+    public int ParrelWorkCountInput{get;set;} = 1;
+
     /// <summary>
     /// List of target width resolutions, in px, to generates BIFs for.
     /// default = { 320 }

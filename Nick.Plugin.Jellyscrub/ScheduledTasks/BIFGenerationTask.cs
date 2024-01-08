@@ -89,19 +89,24 @@ public class BIFGenerationTask : IScheduledTask
         }).OfType<Video>().ToList();
 
         var numComplete = 0;
+        var tasks = new List<Task>();
+        
 
         foreach (var item in items)
         {
-            try
+            tasks.Add(
+                Task.Run(async () => { 
+                    try
             {
                 cancellationToken.ThrowIfCancellationRequested();
+
 
                 await new VideoProcessor(_loggerFactory, _loggerFactory.CreateLogger<VideoProcessor>(), _mediaEncoder, _configurationManager, _fileSystem, _appPaths, _libraryMonitor, _encodingHelper)
                     .Run(item, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
-                break;
+                
             }
             catch (Exception ex)
             {
@@ -114,6 +119,11 @@ public class BIFGenerationTask : IScheduledTask
             percent *= 100;
 
             progress.Report(percent);
+                 }, cancellationToken)
+            );
+
+            
         }
+       await Task.WhenAll(tasks);
     }
 }

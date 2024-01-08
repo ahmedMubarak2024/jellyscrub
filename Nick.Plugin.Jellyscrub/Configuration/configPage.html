@@ -83,6 +83,13 @@
                         <div class="fieldDescription"><strong>Note:</strong> This value cannot be below 0. A value of 0 defaults to a 1000ms interval.</div>
                     </div>
 
+
+                    <div class="inputContainer">
+                        <input is="emby-input" type="number" id="parrelWorkCountInput" pattern="[0-9]*" min="0" required label="Parrel Work ">
+                        <div class="fieldDescription">number of item procced</div>
+                        <div class="fieldDescription"><strong>Note:</strong> This value cannot be below 0. A value of 1 defaults to whatever you feel comfrtuble with </div>
+                    </div>
+
                     <div class="inputContainer">
                         <input is="emby-input" id="resolutionInput" pattern="[0-9,]*" required label="Width Resolutions">
                         <div class="fieldDescription">Comma separated list of the width (px) that trickplay images will be generated at.</div>
@@ -167,6 +174,7 @@
                         page.querySelector('#resolutionInput').value = fromIntArray(config.WidthResolutions);
                         page.querySelector('#processPriority').value = config.ProcessPriority;
                         page.querySelector('#processThreads').value = config.ProcessThreads;
+                        page.querySelector('#parrelWorkCountInput').value = config.ParrelWorkCountInput;
 
                         Dashboard.hideLoadingMsg();
                     });
@@ -190,6 +198,7 @@
                         config.WidthResolutions = toIntArray(form.querySelector('#resolutionInput').value);
                         config.ProcessPriority = form.querySelector('#processPriority').value;
                         config.ProcessThreads = form.querySelector('#processThreads').value;
+                        config.ParrelWorkCountInput = form.querySelector('#parrelWorkCountInput').value;
 
                         ApiClient.updatePluginConfiguration(pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
                     });
