@@ -1,10 +1,10 @@
 [
     {
-        "guid": "a84a949d-4b73-4099-aacb-8341b4da17baa",
-        "name": "Jellyscrub Test",
+        "guid": "a84a949d-4b73-4099-aacb-8341b4da17ba",
+        "name": "Jellyscrub",
         "overview": "Create BIF files for media to be used for trickplay scrubbing previews.",
         "description": "Smooth mouse-over video scrubbing previews.",
-        "owner": "Ahmed",
+        "owner": "Nick",
         "category": "General",
         "imageUrl": "https://raw.githubusercontent.com/nicknsy/jellyscrub/main/logo/logo.png",
         "versions": [
