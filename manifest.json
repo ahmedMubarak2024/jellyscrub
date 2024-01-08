@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/nicknsy/jellyscrub/main/logo/logo.png",
         "versions": [
             {
+                "version": "1.1.1.2",
+                "changelog": "parerel work",
+                "targetAbi": "10.8.0.0",
+                "sourceUrl": "https://github.com/ahmedMubarak2024/jellyscrub/releases/download/Testing2/Nick.Plugin.Jellyscrub.rar",
+                "checksum": "51fd3638b26be487e0c3d43b285dd269",
+                "timestamp": "2024-01-8T20:09:00Z"
+            },
+            {
                 "version": "1.0.0.0",
                 "changelog": "Initial release",
                 "targetAbi": "10.8.0.0",
