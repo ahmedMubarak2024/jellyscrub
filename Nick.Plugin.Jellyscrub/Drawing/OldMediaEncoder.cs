@@ -33,7 +33,7 @@ public class OldMediaEncoder
     private int _threads;
     private bool _doHwAcceleration;
     private bool _doHwEncode;
-    public static SemaphoreSlim _useCpuSema;
+    private readonly static SemaphoreSlim _useCpuSema = new SemaphoreSlim(1, 1);
     private static int count = 0;
 
 
@@ -83,154 +83,170 @@ public class OldMediaEncoder
     {//
 
         bool isUsingCpu = false;
-        if (_config.cpuItemCount > 0)
+
+        await _useCpuSema.WaitAsync(cancellationToken).ConfigureAwait(false);
+        if (count < _config.CpuItemCount)
         {
-            await _useCpuSema.WaitAsync(cancellationToken);
-            if (count < 2)
+            _doHwAcceleration = false;
+            _doHwEncode = false;
+            isUsingCpu = true;
+            count++;
+        }
+        _useCpuSema.Release();
+        try
+        {
+
+
+
+
+            var options = _doHwAcceleration ? _configurationManager.GetEncodingOptions() : new EncodingOptions();
+
+            // A new EncodingOptions instance must be used as to not disable HW acceleration for all of Jellyfin.
+            // Additionally, we must set a few fields without defaults to prevent null pointer exceptions.
+            if (!_doHwAcceleration)
             {
-                _doHwAcceleration = false;
-                _doHwEncode = false;
-                isUsingCpu = true;
-                count++;
+                options.EnableHardwareEncoding = false;
+                options.HardwareAccelerationType = string.Empty;
+                options.EnableTonemapping = false;
             }
-            _useCpuSema.Release();
-        }
 
-        var options = _doHwAcceleration ? _configurationManager.GetEncodingOptions() : new EncodingOptions();
+            var hwAccelType = options.HardwareAccelerationType;
 
-        // A new EncodingOptions instance must be used as to not disable HW acceleration for all of Jellyfin.
-        // Additionally, we must set a few fields without defaults to prevent null pointer exceptions.
-        if (!_doHwAcceleration)
-        {
-            options.EnableHardwareEncoding = false;
-            options.HardwareAccelerationType = string.Empty;
-            options.EnableTonemapping = false;
-        }
-
-        var hwAccelType = options.HardwareAccelerationType;
-
-        var baseRequest = new BaseEncodingJobOptions { MaxWidth = maxWidth };
-        var jobState = new EncodingJobInfo(TranscodingJobType.Progressive)
-        {
-            IsVideoRequest = true,  // must be true for InputVideoHwaccelArgs to return non-empty value
-            MediaSource = mediaSource,
-            VideoStream = videoStream,
-            BaseRequest = baseRequest,  // GetVideoProcessingFilterParam errors if null
-            MediaPath = inputFile,
-            OutputVideoCodec = GetOutputCodec(hwAccelType)
-        };
-
-        // Get input and filter arguments
-        var inputArgs = _encodingHelper.GetInputArgument(jobState, options, null).Trim();
-        if (string.IsNullOrWhiteSpace(inputArgs)) throw new InvalidOperationException("EncodingHelper returned empty input arguments.");
-
-        if (!_doHwAcceleration) inputArgs = "-threads " + _threads + " " + inputArgs; // HW accel args set a different input thread count, only set if disabled
-
-        var filterParams = _encodingHelper.GetVideoProcessingFilterParam(jobState, options, jobState.OutputVideoCodec).Trim();
-        if (string.IsNullOrWhiteSpace(filterParams) || filterParams.IndexOf("\"") == -1) throw new InvalidOperationException("EncodingHelper returned empty or invalid filter parameters.");
-
-        filterParams = filterParams.Insert(filterParams.IndexOf("\"") + 1, "fps=1/" + interval.TotalSeconds.ToString(CultureInfo.InvariantCulture) + ","); // set framerate
-
-        // Output arguments
-        Directory.CreateDirectory(targetDirectory);
-        var outputPath = Path.Combine(targetDirectory, filenamePrefix + "%08d.jpg");
-
-        // Final command arguments
-        var args = string.Format(
-            CultureInfo.InvariantCulture,
-            "-loglevel error {0} -an -sn {1} -threads {2} -c:v {3} -f {4} \"{5}\"",
-            inputArgs,
-            filterParams,
-            _threads,
-            jobState.OutputVideoCodec,
-            "image2",
-            outputPath);
-
-        // Start ffmpeg process
-        var processStartInfo = new ProcessStartInfo
-        {
-            CreateNoWindow = true,
-            UseShellExecute = false,
-            FileName = _ffmpegPath,
-            Arguments = args,
-            WindowStyle = ProcessWindowStyle.Hidden,
-            ErrorDialog = false
-        };
-
-        _logger.LogInformation(processStartInfo.FileName + " " + processStartInfo.Arguments);
-
-        await _thumbnailResourcePool.WaitAsync(cancellationToken).ConfigureAwait(false);
-
-        bool ranToCompletion = false;
-
-        var process = new Process
-        {
-            StartInfo = processStartInfo,
-            EnableRaisingEvents = true
-        };
-        using (var processWrapper = new ProcessWrapper(process, this))
-        {
-            try
+            var baseRequest = new BaseEncodingJobOptions { MaxWidth = maxWidth };
+            var jobState = new EncodingJobInfo(TranscodingJobType.Progressive)
             {
-                StartProcess(processWrapper);
+                IsVideoRequest = true,  // must be true for InputVideoHwaccelArgs to return non-empty value
+                MediaSource = mediaSource,
+                VideoStream = videoStream,
+                BaseRequest = baseRequest,  // GetVideoProcessingFilterParam errors if null
+                MediaPath = inputFile,
+                OutputVideoCodec = GetOutputCodec(hwAccelType)
+            };
 
-                // Need to give ffmpeg enough time to make all the thumbnails, which could be a while,
-                // but we still need to detect if the process hangs.
-                // Making the assumption that as long as new jpegs are showing up, everything is good.
+            // Get input and filter arguments
+            var inputArgs = _encodingHelper.GetInputArgument(jobState, options, null).Trim();
+            if (string.IsNullOrWhiteSpace(inputArgs)) throw new InvalidOperationException("EncodingHelper returned empty input arguments.");
 
-                bool isResponsive = true;
-                int lastCount = 0;
+            if (!_doHwAcceleration) inputArgs = "-threads " + _threads + " " + inputArgs; // HW accel args set a different input thread count, only set if disabled
 
-                while (isResponsive)
+            var filterParams = _encodingHelper.GetVideoProcessingFilterParam(jobState, options, jobState.OutputVideoCodec).Trim();
+            if (string.IsNullOrWhiteSpace(filterParams) || filterParams.IndexOf("\"") == -1) throw new InvalidOperationException("EncodingHelper returned empty or invalid filter parameters.");
+
+            filterParams = filterParams.Insert(filterParams.IndexOf("\"") + 1, "fps=1/" + interval.TotalSeconds.ToString(CultureInfo.InvariantCulture) + ","); // set framerate
+
+            // Output arguments
+            Directory.CreateDirectory(targetDirectory);
+            var outputPath = Path.Combine(targetDirectory, filenamePrefix + "%08d.jpg");
+
+            // Final command arguments
+            var args = string.Format(
+                CultureInfo.InvariantCulture,
+                "-loglevel error {0} -an -sn {1} -threads {2} -c:v {3} -f {4} \"{5}\"",
+                inputArgs,
+                filterParams,
+                _threads,
+                jobState.OutputVideoCodec,
+                "image2",
+                outputPath);
+
+            // Start ffmpeg process
+            var processStartInfo = new ProcessStartInfo
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                FileName = _ffmpegPath,
+                Arguments = args,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                ErrorDialog = false
+            };
+
+            _logger.LogInformation(processStartInfo.FileName + " " + processStartInfo.Arguments);
+
+            await _thumbnailResourcePool.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            bool ranToCompletion = false;
+
+            var process = new Process
+            {
+                StartInfo = processStartInfo,
+                EnableRaisingEvents = true
+            };
+            using (var processWrapper = new ProcessWrapper(process, this))
+            {
+                try
                 {
-                    if (await process.WaitForExitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(false))
+                    StartProcess(processWrapper);
+
+                    // Need to give ffmpeg enough time to make all the thumbnails, which could be a while,
+                    // but we still need to detect if the process hangs.
+                    // Making the assumption that as long as new jpegs are showing up, everything is good.
+
+                    bool isResponsive = true;
+                    int lastCount = 0;
+
+                    while (isResponsive)
                     {
-                        ranToCompletion = true;
-                        break;
+                        if (await process.WaitForExitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(false))
+                        {
+                            ranToCompletion = true;
+                            break;
+                        }
+
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        var jpegCount = _fileSystem.GetFilePaths(targetDirectory)
+                            .Count(i => string.Equals(Path.GetExtension(i), ".jpg", StringComparison.OrdinalIgnoreCase));
+
+                        isResponsive = jpegCount > lastCount;
+                        lastCount = jpegCount;
                     }
 
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    var jpegCount = _fileSystem.GetFilePaths(targetDirectory)
-                        .Count(i => string.Equals(Path.GetExtension(i), ".jpg", StringComparison.OrdinalIgnoreCase));
-
-                    isResponsive = jpegCount > lastCount;
-                    lastCount = jpegCount;
+                    if (!ranToCompletion)
+                    {
+                        _logger.LogInformation("Killing ffmpeg process due to inactivity.");
+                        StopProcess(processWrapper, 1000);
+                    }
                 }
-
-                if (!ranToCompletion)
+                finally
                 {
-                    _logger.LogInformation("Killing ffmpeg process due to inactivity.");
-                    StopProcess(processWrapper, 1000);
+                    _thumbnailResourcePool.Release();
+                    await _useCpuSema.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    if (isUsingCpu)
+                    {
+                        count--;
+                        var hwAcceleration = _config.HwAcceleration;
+                        _doHwAcceleration = (hwAcceleration != HwAccelerationOptions.None);
+                        _doHwEncode = (hwAcceleration == HwAccelerationOptions.Full);
+                    }
+                    _useCpuSema.Release();
                 }
-            }
-            finally
-            {
-                _thumbnailResourcePool.Release();
 
-            }
+                var exitCode = ranToCompletion ? processWrapper.ExitCode ?? 0 : -1;
 
-            var exitCode = ranToCompletion ? processWrapper.ExitCode ?? 0 : -1;
-            if (_config.cpuItemCount > 0)
-            {
-                _useCpuSema.Wait();
-                if (isUsingCpu)
+
+
+                if (exitCode == -1)
                 {
-                    count--;
-                    var hwAcceleration = _config.HwAcceleration;
-                    _doHwAcceleration = (hwAcceleration != HwAccelerationOptions.None);
-                    _doHwEncode = (hwAcceleration == HwAccelerationOptions.Full);
+                    var msg = string.Format(CultureInfo.InvariantCulture, "ffmpeg image extraction failed for {0}", inputFile);
+
+                    _logger.LogError(msg);
+
+                    throw new FfmpegException(msg);
                 }
-                _useCpuSema.Release();
             }
-            if (exitCode == -1)
+        }
+        catch (Exception e)
+        {
+            _logger.LogError("Fatel Error", e);
+            await _useCpuSema.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (isUsingCpu)
             {
-                var msg = string.Format(CultureInfo.InvariantCulture, "ffmpeg image extraction failed for {0}", inputFile);
-
-                _logger.LogError(msg);
-
-                throw new FfmpegException(msg);
+                count--;
+                var hwAcceleration = _config.HwAcceleration;
+                _doHwAcceleration = (hwAcceleration != HwAccelerationOptions.None);
+                _doHwEncode = (hwAcceleration == HwAccelerationOptions.Full);
             }
+            _useCpuSema.Release();
         }
     }
 

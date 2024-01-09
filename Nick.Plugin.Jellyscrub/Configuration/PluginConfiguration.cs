@@ -78,7 +78,7 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>
     /// allow you to run on Cpu when using GPU encoding
     /// </summary>
-    public int cpuItemCount{get;set;} = 1;
+    public int CpuItemCount{get;set;} = 0;
 
     /// <summary>
     /// List of target width resolutions, in px, to generates BIFs for.

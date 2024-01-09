@@ -182,7 +182,7 @@
                         page.querySelector('#processPriority').value = config.ProcessPriority;
                         page.querySelector('#processThreads').value = config.ProcessThreads;
                         page.querySelector('#parrelWorkCountInput').value = config.ParrelWorkCountInput;
-                        page.querySelector('#cpuItemCount').value = config.cpuItemCount;
+                        page.querySelector('#cpuItemCount').value = config.CpuItemCount;
 
                         Dashboard.hideLoadingMsg();
                     });
@@ -207,7 +207,7 @@
                         config.ProcessPriority = form.querySelector('#processPriority').value;
                         config.ProcessThreads = form.querySelector('#processThreads').value;
                         config.ParrelWorkCountInput = form.querySelector('#parrelWorkCountInput').value;
-                        config.cpuItemCount = form.querySelector('#cpuItemCount').value;
+                        config.CpuItemCount = form.querySelector('#cpuItemCount').value;
 
                         ApiClient.updatePluginConfiguration(pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
                     });

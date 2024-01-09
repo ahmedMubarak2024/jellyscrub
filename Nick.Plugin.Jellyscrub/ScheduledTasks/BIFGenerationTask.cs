@@ -84,7 +84,6 @@ public class BIFGenerationTask : IScheduledTask
     /// <inheritdoc />
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
-        OldMediaEncoder._useCpuSema = new SemaphoreSlim(_config.cpuItemCount,_config.cpuItemCount);
         var items = _libraryManager.GetItemList(new InternalItemsQuery
         {
             MediaTypes = new[] { MediaType.Video },

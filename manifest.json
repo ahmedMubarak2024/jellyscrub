@@ -12,8 +12,8 @@
                 "version": "1.1.1.5",
                 "changelog": "Final work",
                 "targetAbi": "10.8.0.0",
-                "sourceUrl": "https://github.com/ahmedMubarak2024/jellyscrub/releases/download/Release_1.1.1.5/Jellyscrub.zip",
-                "checksum": "02993e72cdc784f88d859d303f84edf8",
+                "sourceUrl": "https://github.com/ahmedMubarak2024/jellyscrub/releases/download/Release_1.1.1.5_fix/Jellyscrub.zip",
+                "checksum": "7b8b4c64167eebb22afb4bf9160bb294",
                 "timestamp": "2024-01-8T20:09:00Z"
             },
             {
