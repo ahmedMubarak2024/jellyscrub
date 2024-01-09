@@ -11,7 +11,6 @@ using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Model.IO;
 using Nick.Plugin.Jellyscrub.Configuration;
 using MediaBrowser.Model.Configuration;
-
 namespace Nick.Plugin.Jellyscrub.Drawing;
 
 /// <summary>
@@ -34,12 +33,15 @@ public class OldMediaEncoder
     private int _threads;
     private bool _doHwAcceleration;
     private bool _doHwEncode;
+    public static SemaphoreSlim _useCpuSema;
+    private static int count = 0;
+
 
     public OldMediaEncoder(
-	    ILogger<OldMediaEncoder> logger,
-	    IMediaEncoder mediaEncoder,
-	    IServerConfigurationManager configurationManager,
-	    IFileSystem fileSystem,
+        ILogger<OldMediaEncoder> logger,
+        IMediaEncoder mediaEncoder,
+        IServerConfigurationManager configurationManager,
+        IFileSystem fileSystem,
         EncodingHelper encodingHelper)
     {
         _logger = logger;
@@ -78,7 +80,22 @@ public class OldMediaEncoder
             string filenamePrefix,
             int maxWidth,
             CancellationToken cancellationToken)
-    {
+    {//
+
+        bool isUsingCpu = false;
+        if (_config.cpuItemCount > 0)
+        {
+            await _useCpuSema.WaitAsync(cancellationToken);
+            if (count < 2)
+            {
+                _doHwAcceleration = false;
+                _doHwEncode = false;
+                isUsingCpu = true;
+                count++;
+            }
+            _useCpuSema.Release();
+        }
+
         var options = _doHwAcceleration ? _configurationManager.GetEncodingOptions() : new EncodingOptions();
 
         // A new EncodingOptions instance must be used as to not disable HW acceleration for all of Jellyfin.
@@ -190,10 +207,22 @@ public class OldMediaEncoder
             finally
             {
                 _thumbnailResourcePool.Release();
+
             }
 
             var exitCode = ranToCompletion ? processWrapper.ExitCode ?? 0 : -1;
-
+            if (_config.cpuItemCount > 0)
+            {
+                _useCpuSema.Wait();
+                if (isUsingCpu)
+                {
+                    count--;
+                    var hwAcceleration = _config.HwAcceleration;
+                    _doHwAcceleration = (hwAcceleration != HwAccelerationOptions.None);
+                    _doHwEncode = (hwAcceleration == HwAccelerationOptions.Full);
+                }
+                _useCpuSema.Release();
+            }
             if (exitCode == -1)
             {
                 var msg = string.Format(CultureInfo.InvariantCulture, "ffmpeg image extraction failed for {0}", inputFile);

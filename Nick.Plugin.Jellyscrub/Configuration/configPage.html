@@ -89,6 +89,13 @@
                         <div class="fieldDescription">number of item procced</div>
                         <div class="fieldDescription"><strong>Note:</strong> This value cannot be below 0. A value of 1 defaults to whatever you feel comfrtuble with </div>
                     </div>
+                    
+
+                    <div class="inputContainer">
+                        <input is="emby-input" type="number" id="cpuItemCount" pattern="[0-9]*" min="0" required label="Parrel Work ">
+                        <div class="fieldDescription">number of Cpu Workload</div>
+                        <div class="fieldDescription"><strong>Note:</strong> if Set to 0 Or Less and Using GPU encoding nothing Happens only if set to higher count it works ex if max parrel items is 5 and cpu is 2 then gpu handles 3</div>
+                    </div>
 
                     <div class="inputContainer">
                         <input is="emby-input" id="resolutionInput" pattern="[0-9,]*" required label="Width Resolutions">
@@ -175,6 +182,7 @@
                         page.querySelector('#processPriority').value = config.ProcessPriority;
                         page.querySelector('#processThreads').value = config.ProcessThreads;
                         page.querySelector('#parrelWorkCountInput').value = config.ParrelWorkCountInput;
+                        page.querySelector('#cpuItemCount').value = config.cpuItemCount;
 
                         Dashboard.hideLoadingMsg();
                     });
@@ -199,6 +207,7 @@
                         config.ProcessPriority = form.querySelector('#processPriority').value;
                         config.ProcessThreads = form.querySelector('#processThreads').value;
                         config.ParrelWorkCountInput = form.querySelector('#parrelWorkCountInput').value;
+                        config.cpuItemCount = form.querySelector('#cpuItemCount').value;
 
                         ApiClient.updatePluginConfiguration(pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
                     });

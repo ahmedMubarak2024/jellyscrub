@@ -9,6 +9,7 @@ using Nick.Plugin.Jellyscrub.Drawing;
 using MediaBrowser.Model.Globalization;
 using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Controller.Configuration;
+using Nick.Plugin.Jellyscrub.Configuration;
 
 namespace Nick.Plugin.Jellyscrub.ScheduledTasks;
 
@@ -27,6 +28,8 @@ public class BIFGenerationTask : IScheduledTask
     private readonly IMediaEncoder _mediaEncoder;
     private readonly IServerConfigurationManager _configurationManager;
     private readonly EncodingHelper _encodingHelper;
+    private readonly PluginConfiguration _config;
+
 
     public BIFGenerationTask(
         ILibraryManager libraryManager,
@@ -49,7 +52,8 @@ public class BIFGenerationTask : IScheduledTask
         _localization = localization;
         _mediaEncoder = mediaEncoder;
         _configurationManager = configurationManager;
-        _encodingHelper= encodingHelper;
+        _encodingHelper = encodingHelper;
+        _config = JellyscrubPlugin.Instance!.Configuration;
     }
 
     /// <inheritdoc />
@@ -80,6 +84,7 @@ public class BIFGenerationTask : IScheduledTask
     /// <inheritdoc />
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
+        OldMediaEncoder._useCpuSema = new SemaphoreSlim(_config.cpuItemCount,_config.cpuItemCount);
         var items = _libraryManager.GetItemList(new InternalItemsQuery
         {
             MediaTypes = new[] { MediaType.Video },
@@ -90,40 +95,54 @@ public class BIFGenerationTask : IScheduledTask
 
         var numComplete = 0;
         var tasks = new List<Task>();
-        
+
+        SemaphoreSlim concurrencySemaphore = new SemaphoreSlim(_config.ParrelWorkCountInput, _config.ParrelWorkCountInput);
+
 
         foreach (var item in items)
         {
             tasks.Add(
-                Task.Run(async () => { 
+                Task.Run(async () =>
+                {
+                    await concurrencySemaphore.WaitAsync(cancellationToken);
+                    var isCreated = VideoProcessor.EnableForItem(item, _fileSystem, _config.Interval);
                     try
-            {
-                cancellationToken.ThrowIfCancellationRequested();
+                    {
+
+                        if (isCreated)
+                            _logger.LogInformation(item.Name + " Started");
 
 
-                await new VideoProcessor(_loggerFactory, _loggerFactory.CreateLogger<VideoProcessor>(), _mediaEncoder, _configurationManager, _fileSystem, _appPaths, _libraryMonitor, _encodingHelper)
-                    .Run(item, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("Error creating trickplay files for {0}: {1}", item.Name, ex);
-            }
+                        cancellationToken.ThrowIfCancellationRequested();
 
-            numComplete++;
-            double percent = numComplete;
-            percent /= items.Count;
-            percent *= 100;
 
-            progress.Report(percent);
-                 }, cancellationToken)
+                        await new VideoProcessor(_loggerFactory, _loggerFactory.CreateLogger<VideoProcessor>(), _mediaEncoder, _configurationManager, _fileSystem, _appPaths, _libraryMonitor, _encodingHelper)
+                            .Run(item, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError("Error creating trickplay files for {0}: {1}", item.Name, ex);
+                    }
+
+                    numComplete++;
+                    double percent = numComplete;
+                    percent /= items.Count;
+                    percent *= 100;
+                    if (isCreated)
+                        _logger.LogInformation(item.Name + " completed successfully index:" + items.IndexOf(item));
+
+                    progress.Report(percent);
+                    concurrencySemaphore.Release();
+                }, cancellationToken)
             );
 
-            
+
+
         }
-       await Task.WhenAll(tasks);
+        await Task.WhenAll(tasks);
     }
 }

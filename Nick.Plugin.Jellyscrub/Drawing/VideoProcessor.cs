@@ -235,7 +235,7 @@ public class VideoProcessor
     /*
      * Bif Creation
      */
-    private static readonly SemaphoreSlim BifWriterSemaphore = new SemaphoreSlim(1, 1);
+    private readonly SemaphoreSlim BifWriterSemaphore = new SemaphoreSlim(1, 1);
 
     private Task CreateBif(BaseItem item, int width, int interval, MediaSourceInfo mediaSource, CancellationToken cancellationToken)
     {

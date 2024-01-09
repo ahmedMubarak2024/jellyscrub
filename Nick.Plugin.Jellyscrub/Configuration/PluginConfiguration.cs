@@ -71,8 +71,14 @@ public class PluginConfiguration : BasePluginConfiguration
     /// default = 10000
     /// </summary>
     public int Interval { get; set; } = 10000;
-
+/// <summary>
+    /// allow you to run multiple items in the same time using the full resources of the System
+    /// </summary>
     public int ParrelWorkCountInput{get;set;} = 1;
+    /// <summary>
+    /// allow you to run on Cpu when using GPU encoding
+    /// </summary>
+    public int cpuItemCount{get;set;} = 1;
 
     /// <summary>
     /// List of target width resolutions, in px, to generates BIFs for.
