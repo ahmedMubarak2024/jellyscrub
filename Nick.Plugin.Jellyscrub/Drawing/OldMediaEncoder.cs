@@ -35,7 +35,7 @@ public class OldMediaEncoder
     private bool _doHwEncode;
     private readonly static SemaphoreSlim _useCpuSema = new SemaphoreSlim(1, 1);
     private static int count = 0;
-
+    bool isUsingCpu = false;
 
     public OldMediaEncoder(
         ILogger<OldMediaEncoder> logger,
@@ -82,19 +82,23 @@ public class OldMediaEncoder
             CancellationToken cancellationToken)
     {//
 
-        bool isUsingCpu = false;
-
-        await _useCpuSema.WaitAsync(cancellationToken).ConfigureAwait(false);
-        if (count < _config.CpuItemCount)
-        {
-            _doHwAcceleration = false;
-            _doHwEncode = false;
-            isUsingCpu = true;
-            count++;
-        }
-        _useCpuSema.Release();
         try
         {
+
+            await _useCpuSema.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (isUsingCpu)
+            {
+                count--;
+            }
+            if (count < _config.CpuItemCount)
+            {
+                _doHwAcceleration = false;
+                _doHwEncode = false;
+                isUsingCpu = true;
+                count++;
+            }
+            _useCpuSema.Release();
+
 
 
 
@@ -237,7 +241,7 @@ public class OldMediaEncoder
         }
         catch (Exception e)
         {
-            _logger.LogError("Fatel Error", e);
+            _logger.LogError("Fatel Error " + e.Message, e);
             await _useCpuSema.WaitAsync(cancellationToken).ConfigureAwait(false);
             if (isUsingCpu)
             {
@@ -247,6 +251,7 @@ public class OldMediaEncoder
                 _doHwEncode = (hwAcceleration == HwAccelerationOptions.Full);
             }
             _useCpuSema.Release();
+            throw;
         }
     }
 
