@@ -34,8 +34,7 @@ public class OldMediaEncoder
     private bool _doHwAcceleration;
     private bool _doHwEncode;
     private readonly static SemaphoreSlim _useCpuSema = new SemaphoreSlim(1, 1);
-    private static int count = 0;
-    bool isUsingCpu = false;
+    public static readonly List<Process> _cpuProccessList = new List<Process>();
 
     public OldMediaEncoder(
         ILogger<OldMediaEncoder> logger,
@@ -69,6 +68,24 @@ public class OldMediaEncoder
         _doHwEncode = (hwAcceleration == HwAccelerationOptions.Full);
     }
 
+    public bool ShouldUseCpu()
+    {
+        _cpuProccessList.RemoveAll(process =>
+        {
+            try
+            {
+                _ = process.ExitCode;
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        });
+        return _cpuProccessList.Count < _config.CpuItemCount;
+    }
+
+
     public async Task ExtractVideoImagesOnInterval(
             string inputFile,
             string container,
@@ -82,22 +99,19 @@ public class OldMediaEncoder
             CancellationToken cancellationToken)
     {//
 
+        bool isUsingCpu = false;
+
         try
         {
 
             await _useCpuSema.WaitAsync(cancellationToken).ConfigureAwait(false);
-            if (isUsingCpu)
-            {
-                count--;
-            }
-            if (count < _config.CpuItemCount)
+            if (ShouldUseCpu())
             {
                 _doHwAcceleration = false;
                 _doHwEncode = false;
                 isUsingCpu = true;
-                count++;
             }
-            _useCpuSema.Release();
+
 
 
 
@@ -175,6 +189,10 @@ public class OldMediaEncoder
                 StartInfo = processStartInfo,
                 EnableRaisingEvents = true
             };
+            if (isUsingCpu)
+                _cpuProccessList.Add(process);
+            _useCpuSema.Release();
+
             using (var processWrapper = new ProcessWrapper(process, this))
             {
                 try
@@ -217,7 +235,6 @@ public class OldMediaEncoder
                     await _useCpuSema.WaitAsync(cancellationToken).ConfigureAwait(false);
                     if (isUsingCpu)
                     {
-                        count--;
                         var hwAcceleration = _config.HwAcceleration;
                         _doHwAcceleration = (hwAcceleration != HwAccelerationOptions.None);
                         _doHwEncode = (hwAcceleration == HwAccelerationOptions.Full);
@@ -226,6 +243,7 @@ public class OldMediaEncoder
                 }
 
                 var exitCode = ranToCompletion ? processWrapper.ExitCode ?? 0 : -1;
+                _cpuProccessList.Remove(process);
 
 
 
@@ -245,7 +263,6 @@ public class OldMediaEncoder
             await _useCpuSema.WaitAsync(cancellationToken).ConfigureAwait(false);
             if (isUsingCpu)
             {
-                count--;
                 var hwAcceleration = _config.HwAcceleration;
                 _doHwAcceleration = (hwAcceleration != HwAccelerationOptions.None);
                 _doHwEncode = (hwAcceleration == HwAccelerationOptions.Full);
