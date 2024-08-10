@@ -11,6 +11,7 @@ using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Model.IO;
 using Nick.Plugin.Jellyscrub.Configuration;
 using MediaBrowser.Model.Configuration;
+using Nick.Plugin.Jellyscrub.ScheduledTasks;
 namespace Nick.Plugin.Jellyscrub.Drawing;
 
 /// <summary>
@@ -70,6 +71,8 @@ public class OldMediaEncoder
 
     public bool ShouldUseCpu()
     {
+
+
         _cpuProccessList.RemoveAll(process =>
         {
             try
@@ -105,11 +108,13 @@ public class OldMediaEncoder
         {
 
             await _useCpuSema.WaitAsync(cancellationToken).ConfigureAwait(false);
-            if (ShouldUseCpu())
+
+            if (BIFGenerationTask.usingCpuResource <= _config.CpuItemCount && BIFGenerationTask.usingCpuResource < 4)
             {
                 _doHwAcceleration = false;
                 _doHwEncode = false;
                 isUsingCpu = true;
+                BIFGenerationTask.usingCpuResource++;
             }
 
 
@@ -238,6 +243,7 @@ public class OldMediaEncoder
                         var hwAcceleration = _config.HwAcceleration;
                         _doHwAcceleration = (hwAcceleration != HwAccelerationOptions.None);
                         _doHwEncode = (hwAcceleration == HwAccelerationOptions.Full);
+                        BIFGenerationTask.usingCpuResource--;
                     }
                     _useCpuSema.Release();
                 }

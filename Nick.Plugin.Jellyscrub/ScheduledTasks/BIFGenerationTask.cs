@@ -29,6 +29,7 @@ public class BIFGenerationTask : IScheduledTask
     private readonly IServerConfigurationManager _configurationManager;
     private readonly EncodingHelper _encodingHelper;
     private readonly PluginConfiguration _config;
+    public static int usingCpuResource = 0;
 
 
     public BIFGenerationTask(
@@ -95,6 +96,7 @@ public class BIFGenerationTask : IScheduledTask
 
         var numComplete = 0;
         var tasks = new List<Task>();
+        usingCpuResource = 0;
 
         SemaphoreSlim concurrencySemaphore = new SemaphoreSlim(_config.ParrelWorkCountInput, _config.ParrelWorkCountInput);
 
